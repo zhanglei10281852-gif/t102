@@ -1,13 +1,7 @@
 package com.company.material.config;
 
-import com.company.material.entity.Material;
-import com.company.material.entity.Supplier;
-import com.company.material.entity.User;
-import com.company.material.entity.Warehouse;
-import com.company.material.repository.MaterialRepository;
-import com.company.material.repository.SupplierRepository;
-import com.company.material.repository.UserRepository;
-import com.company.material.repository.WarehouseRepository;
+import com.company.material.entity.*;
+import com.company.material.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +17,9 @@ public class DataInitializer implements CommandLineRunner {
     private final MaterialRepository materialRepository;
     private final WarehouseRepository warehouseRepository;
     private final SupplierRepository supplierRepository;
+    private final InventoryLedgerRepository inventoryLedgerRepository;
+    private final InventoryTransactionRepository inventoryTransactionRepository;
+    private final DepartmentBudgetRepository departmentBudgetRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -52,6 +49,24 @@ public class DataInitializer implements CommandLineRunner {
             createMaterial("MAT0003", "三相异步电机", "电气设备", "台", "Y2-132M-4 7.5kW", new BigDecimal("1850.00"), 10);
             createMaterial("MAT0004", "液压油", "辅料", "桶", "L-HM46 200L", new BigDecimal("980.00"), 30);
             createMaterial("MAT0005", "劳保手套", "低值易耗", "副", "丁腈防滑", new BigDecimal("8.50"), 500);
+        }
+
+        if (inventoryLedgerRepository.count() == 0) {
+            createLedger(1L, 1L, new BigDecimal("100"), new BigDecimal("4200.00"));
+            createLedger(1L, 2L, new BigDecimal("500"), new BigDecimal("35.50"));
+            createLedger(1L, 3L, new BigDecimal("20"), new BigDecimal("1850.00"));
+            createLedger(1L, 4L, new BigDecimal("50"), new BigDecimal("980.00"));
+            createLedger(1L, 5L, new BigDecimal("1000"), new BigDecimal("8.50"));
+            createLedger(3L, 2L, new BigDecimal("200"), new BigDecimal("36.00"));
+            createLedger(3L, 3L, new BigDecimal("5"), new BigDecimal("1900.00"));
+        }
+
+        String currentMonth = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"));
+        if (departmentBudgetRepository.count() == 0) {
+            createBudget("生产部", currentMonth, new BigDecimal("50000"));
+            createBudget("采购部", currentMonth, new BigDecimal("30000"));
+            createBudget("仓储部", currentMonth, new BigDecimal("10000"));
+            createBudget("信息中心", currentMonth, new BigDecimal("5000"));
         }
     }
 
@@ -96,5 +111,33 @@ public class DataInitializer implements CommandLineRunner {
         m.setReferencePrice(price);
         m.setSafetyStock(safety);
         materialRepository.save(m);
+    }
+
+    private void createLedger(Long warehouseId, Long materialId, BigDecimal quantity, BigDecimal unitCost) {
+        InventoryLedger ledger = new InventoryLedger();
+        ledger.setWarehouseId(warehouseId);
+        ledger.setMaterialId(materialId);
+        ledger.setQuantity(quantity);
+        ledger.setUnitCost(unitCost);
+        ledger.setTotalCost(quantity.multiply(unitCost));
+        inventoryLedgerRepository.save(ledger);
+
+        InventoryTransaction tx = new InventoryTransaction();
+        tx.setWarehouseId(warehouseId);
+        tx.setMaterialId(materialId);
+        tx.setTransactionType("入库");
+        tx.setQuantity(quantity);
+        tx.setUnitCost(unitCost);
+        tx.setTotalCost(quantity.multiply(unitCost));
+        tx.setRelatedOrderNo("INIT");
+        inventoryTransactionRepository.save(tx);
+    }
+
+    private void createBudget(String department, String yearMonth, BigDecimal amount) {
+        DepartmentBudget budget = new DepartmentBudget();
+        budget.setDepartment(department);
+        budget.setYearMonth(yearMonth);
+        budget.setBudgetAmount(amount);
+        departmentBudgetRepository.save(budget);
     }
 }
